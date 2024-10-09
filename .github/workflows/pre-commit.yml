@@ -2,9 +2,9 @@ name: Linting and formatting (pre-commit)
 
 on:
   push:
-    branches: "*" # Run on all branches
+    branches: [main]
   pull_request:
-    branches: [master, dev]
+    branches: [main]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -15,6 +15,4 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - uses: actions/setup-python@v3
-    - uses: Wandalen/wretry.action@master
-      with:
-        action: pre-commit/action@v3.0.1
+    - uses: pre-commit/action@v3.0.1

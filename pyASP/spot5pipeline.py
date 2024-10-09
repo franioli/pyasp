@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from asp import AmesStereoPipelineBase, AmesStereoPipelineError
+from pyasp.pipeline import AmesStereoPipelineBase, AmesStereoPipelineError
 
 
 class Spot5Pipeline(AmesStereoPipelineBase):

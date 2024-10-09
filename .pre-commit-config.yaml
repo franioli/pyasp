@@ -2,8 +2,6 @@ repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
-    - id: end-of-file-fixer
-      exclude: \.txt$
     - id: trailing-whitespace  # Remove trailing whitespaces
     - id: check-merge-conflict
 - repo: https://github.com/astral-sh/ruff-pre-commit
