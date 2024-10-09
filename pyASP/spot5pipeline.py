@@ -18,8 +18,8 @@ class Spot5Pipeline(AmesStereoPipelineBase):
         # Define metadata and imagery paths
         front_metadata = front_scene / "METADATA.DIM"
         back_metadata = back_scene / "METADATA.DIM"
-        front_imagery = front_scene / "IMAGERY.TIF"
-        back_imagery = back_scene / "IMAGERY.TIF"
+        # front_imagery = front_scene / "IMAGERY.TIF"
+        # back_imagery = back_scene / "IMAGERY.TIF"
 
         # Add RPC to metadata
         self.add_spot_rpc(front_metadata, front_metadata)

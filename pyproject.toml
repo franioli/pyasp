@@ -29,14 +29,14 @@ requires-python = ">=3.10"
 
 [project.optional-dependencies]
 dev = [
-    "flake8", 
-    "black", 
-    "bumpver", 
-    "isort", 
-    "pip-tools", 
-    "pytest", 
-    "mkdocs", 
-    "mkdocs-material", 
+    "flake8",
+    "black",
+    "bumpver",
+    "isort",
+    "pip-tools",
+    "pytest",
+    "mkdocs",
+    "mkdocs-material",
     "mkdocstrings[python]",
     "pre-commit",
 ]
@@ -48,7 +48,7 @@ Homepage = "https://github.com/franioli/pyASP"
 addopts = [
     "--import-mode=importlib",
 ]
-    
+
 [tool.isort]
 profile = "black"
 
@@ -62,7 +62,7 @@ push = false
 
 [tool.bumpver.file_patterns]
 "pyproject.toml" = [
-    'current_version = "{version}"', 
+    'current_version = "{version}"',
     'version = "{version}"'
 ]
 "pyASP/__init__.py" = [
