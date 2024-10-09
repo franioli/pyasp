@@ -18,5 +18,3 @@ jobs:
     - uses: Wandalen/wretry.action@master
       with:
         action: pre-commit/action@v3.0.1
-        attempt_limit: 2
-
