@@ -2,9 +2,12 @@ name: Linting and formatting (pre-commit)
 
 on:
   push:
-    branches: [ main ]
+    branches: "*" # Run on all branches
   pull_request:
-    branches: [ main ]
+    branches: [master, dev]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
 
 jobs:
   pre-commit:
@@ -12,4 +15,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-python@v5
+      with:
+        python-version: "3.9"
+        cache: "pip" # caching pip dependencies
     - uses: pre-commit/action@v3.0.1
