@@ -44,6 +44,9 @@ dev = [
 [project.urls]
 Homepage = "https://github.com/franioli/pyASP"
 
+[tool.setuptools]
+packages = ["pyasp"]
+
 [tool.pytest.ini_options]
 addopts = [
     "--import-mode=importlib",

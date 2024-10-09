@@ -1,0 +1,33 @@
+# config.yaml
+
+# ASP Binary Directory
+# asp_bin_dir: "/home/francesco/software/StereoPipeline-3.5.0-alpha-2024-09-30-x86_64-Linux/bin"
+
+# Data and Output Directories
+data_dir: "img"
+output_dir: "ouput"
+
+# Processing Parameters
+stereo_algorithm: "asp_sgm" # Options: asp_sgm, asp_mgm, asp_bm, asp_final_mgm
+epsg_code: 32362
+dem_resolution: 20
+mapproj_in_res: 20
+proj4: "+proj=utm +zone=32 +datum=WGS84 +units=m +no_defs +type=crs"
+pllpar: "--processes 1 --corr-tile-size 2000 --threads-singleprocess 8 --corr-timeout 7200 --corr-memory-limit-mb 32768 -t spot5maprpc --stereo-algorithm asp_mgm --cost-mode 3 --subpixel-mode 9 --corr-kernel 7 7 --subpixel-kernel 15 15"
+point2dem_filter_par: ""
+min_z: 100
+max_z: 4500
+
+# Image Directories (Relative to data_dir)
+front_dir: "img/002-006_S5_053-256-0_2005-01-04-10-34-09_HRS-1_S_DT_TT"
+back_dir: "img/002-006_S5_053-256-0_2005-01-04-10-35-40_HRS-2_S_DT_TT"
+
+# DEM Paths (Relative to data_dir)
+seed_dem_path: "Copernicus_DSM2021_90m_aletsch_mosaic32float_utm32n.tif"
+coreg_dem_path: "Copernicus_DSM2021_30m_aletsch_mosaic32float_utm32n.tif"
+glacier_outlines_path: "11_rgi60_ceu_wgs84_utm32n.shp"
+
+# Logging Configuration
+logging:
+  level: "INFO" # Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  log_file: "processing.log"

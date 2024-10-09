@@ -19,21 +19,21 @@ class AmesStereoPipelineError(Exception):
 class AmesStereoPipelineBase(ABC):
     def __init__(self, config_path: Path, asp_path: Path = None):
         # Load configuration
-        self.config = OmegaConf.load(config_path)
+        self._config = OmegaConf.load(config_path)
 
         # Set up paths
-        self.data_dir = Path(self.config.data_dir).resolve()
+        self.data_dir = Path(self._config.data_dir).resolve()
         if not self.data_dir.is_dir():
             raise AmesStereoPipelineError(
                 f"Data directory does not exist: {self.data_dir}"
             )
 
-        self.output_dir = Path(self.config.output_dir).resolve()
+        self.output_dir = Path(self._config.output_dir).resolve()
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
         # Set up logging
-        log_level = getattr(logging, self.config.logging.level.upper(), logging.INFO)
-        log_file = self.output_dir / self.config.logging.log_file
+        log_level = getattr(logging, self._config.logging.level.upper(), logging.INFO)
+        log_file = self.output_dir / self._config.logging.log_file
         logging.basicConfig(
             level=log_level,
             format="%(asctime)s [%(levelname)s] %(message)s",
@@ -48,7 +48,12 @@ class AmesStereoPipelineBase(ABC):
         if asp_path:
             asp_bin_dir = asp_path.resolve()
         else:
-            asp_bin_dir = Path(self.config.asp_bin_dir).resolve()
+            try:
+                asp_bin_dir = Path(self._config.asp_bin_dir).resolve()
+            except AttributeError:
+                raise AmesStereoPipelineError(
+                    "ASP binary directory not provided or configured"
+                )
 
         if asp_bin_dir.is_dir():
             os.environ["PATH"] += os.pathsep + str(asp_bin_dir)
