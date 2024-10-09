@@ -3,7 +3,7 @@
 
 # Add ASP binary directory to the PATH
 asp_bin_dir="$HOME/StereoPipeline-3.5.0-alpha-2024-10-06-x86_64-Linux/bin"
-export PATH=${PATH}:${asp_bin_dir}                                   
+export PATH=${PATH}:${asp_bin_dir}
 
 # Paths
 data_path=`realpath "data"`
@@ -43,7 +43,7 @@ bundle_adjust -t spot5  \
   $front_dir/METADATA_FRONT.DIM $back_dir/METADATA_BACK.DIM \
   -o $dir_out_path/ba_run/out  --elevation-limit $minZ $maxZ \
   --ip-per-tile 500 --matches-per-tile 100 \
-  --threads 16 
+  --threads 16
 
 # Orthorectify the images
 mapproject -t rpc --t_srs "$proj4" --tr $mapproj_in_res $seed_dem_path $front_dir/IMAGERY_FRONT.TIF $front_dir/METADATA_FRONT.DIM $dir_out_path/front_map_proj_ba.tif --bundle-adjust-prefix $dir_out_path/ba_run/out
