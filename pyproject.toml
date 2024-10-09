@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyasp"
-version = "0.0.0"
+version = "0.0.1"
 description = ""
 readme = "README.md"
 authors = [
@@ -53,7 +53,7 @@ addopts = [
 profile = "black"
 
 [tool.bumpver]
-current_version = "0.0.0"
+current_version = "0.0.1"
 version_pattern = "MAJOR.MINOR.PATCH"
 commit_message = "bump version {old_version} -> {new_version}"
 commit = true
@@ -65,6 +65,6 @@ push = false
     'current_version = "{version}"',
     'version = "{version}"'
 ]
-"pyASP/__init__.py" = [
+"pyasp/__init__.py" = [
     "{version}"
 ]
