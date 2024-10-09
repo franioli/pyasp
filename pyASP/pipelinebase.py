@@ -1,6 +1,3 @@
-# pipeline_base.py
-
-import logging
 import os
 import shutil
 import subprocess
@@ -8,6 +5,8 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 
 from omegaconf import OmegaConf
+
+from pyasp import logger
 
 
 class AmesStereoPipelineError(Exception):
@@ -19,30 +18,10 @@ class AmesStereoPipelineError(Exception):
 class AmesStereoPipelineBase(ABC):
     def __init__(self, config_path: Path, asp_path: Path = None):
         # Load configuration
+        config_path = Path(config_path).resolve()
+        if not config_path.is_file():
+            raise FileNotFoundError(f"Configuration file not found: {config_path}")
         self._config = OmegaConf.load(config_path)
-
-        # Set up paths
-        self.data_dir = Path(self._config.data_dir).resolve()
-        if not self.data_dir.is_dir():
-            raise AmesStereoPipelineError(
-                f"Data directory does not exist: {self.data_dir}"
-            )
-
-        self.output_dir = Path(self._config.output_dir).resolve()
-        self.output_dir.mkdir(parents=True, exist_ok=True)
-
-        # Set up logging
-        log_level = getattr(logging, self._config.logging.level.upper(), logging.INFO)
-        log_file = self.output_dir / self._config.logging.log_file
-        logging.basicConfig(
-            level=log_level,
-            format="%(asctime)s [%(levelname)s] %(message)s",
-            handlers=[
-                logging.StreamHandler(),
-                logging.FileHandler(log_file),
-            ],
-        )
-        self.logger = logging.getLogger(self.__class__.__name__)
 
         # Add ASP binary directory to PATH
         if asp_path:
@@ -57,12 +36,22 @@ class AmesStereoPipelineBase(ABC):
 
         if asp_bin_dir.is_dir():
             os.environ["PATH"] += os.pathsep + str(asp_bin_dir)
-            self.logger.debug(f"Added ASP binary directory to PATH: {asp_bin_dir}")
+            logger.debug(f"Added ASP binary directory to PATH: {asp_bin_dir}")
         else:
-            self.logger.error(f"ASP binary directory does not exist: {asp_bin_dir}")
+            logger.error(f"ASP binary directory does not exist: {asp_bin_dir}")
             raise AmesStereoPipelineError(
                 f"ASP binary directory does not exist: {asp_bin_dir}"
             )
+
+        # Set up paths
+        self.data_dir = Path(self._config.data_dir).resolve()
+        if not self.data_dir.is_dir():
+            raise AmesStereoPipelineError(
+                f"Data directory does not exist: {self.data_dir}"
+            )
+
+        self.output_dir = Path(self._config.output_dir).resolve()
+        self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}"
@@ -83,7 +72,7 @@ class AmesStereoPipelineBase(ABC):
         Raises:
             AmesStereoPipelineError: If the command execution fails.
         """
-        self.logger.info(f"Executing command: {' '.join(command)}")
+        logger.info(f"Executing command: {' '.join(command)}")
         try:
             process = subprocess.Popen(
                 command,
@@ -101,21 +90,21 @@ class AmesStereoPipelineBase(ABC):
             for line in iter(process.stdout.readline, ""):
                 if line:
                     if not suppress_output:
-                        self.logger.info(line.strip())
+                        logger.info(line.strip())
                     stdout_lines.append(line)
             process.stdout.close()
 
             # Stream stderr
             for line in iter(process.stderr.readline, ""):
                 if line:
-                    self.logger.warning(line.strip())
+                    logger.warning(line.strip())
                     stderr_lines.append(line)
             process.stderr.close()
 
             return_code = process.wait()
             if return_code != 0:
-                self.logger.error(f"Command failed with return code {return_code}")
-                self.logger.error("".join(stderr_lines))
+                logger.error(f"Command failed with return code {return_code}")
+                logger.error("".join(stderr_lines))
                 raise AmesStereoPipelineError(
                     f"Command failed: {' '.join(command)}\nReturn Code: {return_code}\nError Output: {''.join(stderr_lines)}"
                 )
@@ -124,11 +113,11 @@ class AmesStereoPipelineBase(ABC):
             return collected_stdout
 
         except subprocess.CalledProcessError as e:
-            self.logger.error(f"Command failed: {' '.join(command)}")
-            self.logger.error(e.stderr)
+            logger.error(f"Command failed: {' '.join(command)}")
+            logger.error(e.stderr)
             raise AmesStereoPipelineError(f"Command failed: {' '.join(command)}") from e
         except Exception as e:
-            self.logger.error(
+            logger.error(
                 f"Unexpected error during command execution: {' '.join(command)}"
             )
             raise AmesStereoPipelineError(f"Unexpected error: {e}") from e
@@ -145,9 +134,9 @@ class AmesStereoPipelineBase(ABC):
         """Copy file from source to destination."""
         try:
             shutil.copy(source, destination)
-            self.logger.debug(f"Copied {source} to {destination}")
+            logger.debug(f"Copied {source} to {destination}")
         except Exception as e:
-            self.logger.error(f"Failed to copy {source} to {destination}: {e}")
+            logger.error(f"Failed to copy {source} to {destination}: {e}")
             raise AmesStereoPipelineError(
                 f"Failed to copy {source} to {destination}"
             ) from e
@@ -161,3 +150,7 @@ class AmesStereoPipelineBase(ABC):
     # def process_all_pairs(self):
     #     """Process all stereo pairs."""
     #     pass
+
+
+if __name__ == "__main__":
+    pass

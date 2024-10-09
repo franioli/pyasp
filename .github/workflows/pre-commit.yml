@@ -16,3 +16,7 @@ jobs:
     - uses: actions/checkout@v3
     - uses: actions/setup-python@v3
     - uses: pre-commit/action@v3.0.1
+    # Add files to staging area after linting and formatting
+    - run: git add -u && !!
+
+

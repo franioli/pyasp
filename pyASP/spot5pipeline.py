@@ -1,11 +1,11 @@
 from pathlib import Path
 
-from pyasp.pipeline import AmesStereoPipelineBase, AmesStereoPipelineError
+from pyasp.pipelinebase import AmesStereoPipelineBase, AmesStereoPipelineError
 
 
 class Spot5Pipeline(AmesStereoPipelineBase):
     def __init__(self, config_path: Path, asp_path: Path = None):
-        super().__init__(config_path)
+        super().__init__(config_path, asp_path)
 
     def process_pair(self, pair_name: str, front_dir: Path, back_dir: Path):
         """Process a single Spot5 stereo pair."""
