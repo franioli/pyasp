@@ -110,6 +110,7 @@ def run_command(
                 logger.info(result.stdout)
         except subprocess.CalledProcessError as e:
             logger.error(e.stderr)
+            return
 
         if verbose:
             end_time = time.perf_counter()
@@ -117,6 +118,71 @@ def run_command(
             logger.info(f"Function {command[0]} took {total_time:.4f} s.")
 
     return result
+
+
+class Command:
+    def __init__(
+        self,
+        cmd: str | List[str],
+        name: str = "Command",
+        silent: bool = False,
+        verbose: bool = False,
+        **kwargs,
+    ):
+        if isinstance(cmd, str):
+            cmd = cmd_string_to_list(cmd)
+        elif isinstance(cmd, list):
+            pass
+        else:
+            raise TypeError("cmd must be a list of strings or a single string")
+        self.cmd = cmd
+        self.name = name
+        self.silent = silent
+        self.verbose = verbose
+        self.kwargs = kwargs
+
+    def __str__(self):
+        return f"{self.name} {cmd_list_to_string(self.cmd)}"
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self.name}: {cmd_list_to_string(self.cmd)})"
+
+    def __call__(self):
+        run_command(self.cmd, silent=self.silent, verbose=self.verbose, **self.kwargs)
+
+    def extend(self, *args, **kwargs):
+        if not args and not kwargs:
+            return
+
+        # Extend the command with each element of the args (handling lists of arguments)
+        for arg in args:
+            if isinstance(arg, list):
+                self.cmd.extend(
+                    map(str, arg)
+                )  # Convert list elements to strings and extend the command
+            else:
+                self.cmd.append(
+                    str(arg)
+                )  # Convert single elements to string and append to the command
+
+        # Extend the command with additional keyword arguments (as key-value pairs)
+        for key, value in kwargs.items():
+            # Replace underscores with hyphens and prepend '--' for shell-style arguments
+            option = f"--{key.replace('_', '-')}"
+
+            if isinstance(value, bool):
+                if value:  # Add the option if the value is True
+                    self.cmd.append(option)
+            elif isinstance(value, list):
+                # For list values, append each item with the option
+                for item in value:
+                    self.cmd.extend([option, str(item)])
+            else:
+                # Append the option and its value for all other types
+                self.cmd.extend([option, str(value)])
+
+    def run(self):
+        run_command(self.cmd, silent=self.silent, verbose=self.verbose, **self.kwargs)
 
 
 def add_directory_to_path(directory: str | Path):
@@ -143,14 +209,32 @@ def check_asp_binary():
         bool: True if the ASP binaries are in the PATH, False otherwise.
     """
     try:
-        run_command(["parallel_stereo", "--version"], silent=True)
+        subprocess.run(
+            ["parallel_stereo", "--version"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=True,
+        )
         return True
     except FileNotFoundError:
         return False
 
 
 if __name__ == "__main__":
+    add_directory_to_path(
+        Path.home() / "StereoPipeline-3.5.0-alpha-2024-10-06-x86_64-Linux/bin"
+    )
     cmd = "ls -l ."
+
     print(cmd_string_to_list(cmd))
 
-    out = run_command(cmd, verbose=True)
+    # out = run_command(cmd, verbose=True)
+
+    cmd = Command("parallel_stereo --version")
+    cmd()
+    cmd.run()
+
+    positional_args = ["image.tif", "metadata.xml"]
+    keyword_args = {"t": "rpc", "e": "rpc"}
+
+    cmd.extend(positional_args, **keyword_args)

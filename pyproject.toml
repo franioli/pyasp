@@ -23,12 +23,9 @@ dependencies = [
     "pandas",
     "opencv-python",
     "opencv-contrib-python",
-    'requests',
-    'fire',
-    'moody>=0.2.0',
-    'papermill',
-    'rasterio',
-    'pyproj'
+    "rasterio",
+    "pyproj",
+    "tqdm",
 ]
 requires-python = ">=3.10"
 
