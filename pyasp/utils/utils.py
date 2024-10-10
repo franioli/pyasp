@@ -2,6 +2,7 @@ import contextlib
 import io
 import logging
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -165,21 +166,9 @@ class Command:
                     str(arg)
                 )  # Convert single elements to string and append to the command
 
-        # Extend the command with additional keyword arguments (as key-value pairs)
+        # Extend the command with additional keyword arguments
         for key, value in kwargs.items():
-            # Replace underscores with hyphens and prepend '--' for shell-style arguments
-            option = f"--{key.replace('_', '-')}"
-
-            if isinstance(value, bool):
-                if value:  # Add the option if the value is True
-                    self.cmd.append(option)
-            elif isinstance(value, list):
-                # For list values, append each item with the option
-                for item in value:
-                    self.cmd.extend([option, str(item)])
-            else:
-                # Append the option and its value for all other types
-                self.cmd.extend([option, str(value)])
+            self.cmd.extend([f"{key}", str(value)])
 
     def run(self):
         run_command(self.cmd, silent=self.silent, verbose=self.verbose, **self.kwargs)
@@ -208,15 +197,9 @@ def check_asp_binary():
     Returns:
         bool: True if the ASP binaries are in the PATH, False otherwise.
     """
-    try:
-        subprocess.run(
-            ["parallel_stereo", "--version"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=True,
-        )
+    if shutil.which("parallel_stereo") is not None:
         return True
-    except FileNotFoundError:
+    else:
         return False
 
 

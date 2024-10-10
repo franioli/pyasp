@@ -38,6 +38,7 @@ dev = [
     "isort",
     "pip-tools",
     "pytest",
+    "pytest-mock",
     "mkdocs",
     "mkdocs-material",
     "mkdocstrings[python]",

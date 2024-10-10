@@ -10,5 +10,5 @@ timer = Timer(logger=logger)
 # Try to run an AmesStereoPipeline command. If it fails, ask the user to manually add the ASP binaries to the PATH with asp.add_directory_to_path()
 if not check_asp_binary():
     logger.warning(
-        "The AmesStereoPipeline binaries are not in the PATH environmental variable. Please add them manually with asp.add_directory_to_path()."
+        "The AmesStereoPipeline binaries not found. Please add them to the PATH environmental variable with asp.add_directory_to_path()."
     )
