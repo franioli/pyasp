@@ -69,13 +69,14 @@ class OutputCapture:
 
 
 def run_command(
-    command: List[str] | str, verbose: bool = False, **kwargs
+    command: List[str] | str, silent: bool = False, verbose: bool = False, **kwargs
 ) -> subprocess.CompletedProcess:
     """
     Run a shell command, capture output in real time, and handle errors.
 
     Args:
         command (List[str] | str): Command and arguments to execute.
+        silent (bool): Suppress output.
         verbose (bool): Verbose output
         kwargs: Additional keyword arguments to pass to subprocess.run.
 
@@ -88,6 +89,13 @@ def run_command(
         pass
     else:
         raise TypeError("command must be a list of strings or a single string")
+
+    if silent:
+        kwargs["stdout"] = subprocess.PIPE
+        kwargs["stderr"] = subprocess.PIPE
+        subprocess.run(command, check=True, **kwargs)
+        return
+
     if verbose:
         logger.info(f"Executing command: {command}")
 
@@ -95,14 +103,20 @@ def run_command(
         if verbose:
             start_time = time.perf_counter()
 
-        output = subprocess.run(command, check=True, text=True, **kwargs)
+        try:
+            kwargs["stderr"] = subprocess.PIPE
+            result = subprocess.run(command, check=True, text=True, **kwargs)
+            if verbose:
+                logger.info(result.stdout)
+        except subprocess.CalledProcessError as e:
+            logger.error(e.stderr)
 
         if verbose:
             end_time = time.perf_counter()
             total_time = end_time - start_time
             logger.info(f"Function {command[0]} took {total_time:.4f} s.")
 
-    return output
+    return result
 
 
 def add_directory_to_path(directory: str | Path):
@@ -119,6 +133,20 @@ def add_directory_to_path(directory: str | Path):
         raise FileNotFoundError(f"Directory does not exist: {directory}")
 
     os.environ["PATH"] = f"{directory}:{os.environ['PATH']}"
+
+
+def check_asp_binary():
+    """
+    Check if the Ames Stereo Pipeline binaries are in the PATH.
+
+    Returns:
+        bool: True if the ASP binaries are in the PATH, False otherwise.
+    """
+    try:
+        run_command(["parallel_stereo", "--version"], silent=True)
+        return True
+    except FileNotFoundError:
+        return False
 
 
 if __name__ == "__main__":
