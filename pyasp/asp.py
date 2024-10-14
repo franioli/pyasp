@@ -185,6 +185,25 @@ class ASPFunctionBase(ABC):
         """
         pass
 
+    @classmethod
+    def from_command(cls, command: Command | str):
+        """
+        Create an instance of the ASPFunctionBase class from a Command object.
+
+        Args:
+            command (Command): The Command object to convert to an ASPFunctionBase instance.
+
+        Returns:
+            ASPFunctionBase: An instance of the ASPFunctionBase class.
+        """
+        instance = cls()
+
+        if isinstance(command, str):
+            command = Command(command)
+
+        instance._command = command
+        return instance
+
 
 class ParallelStereo(ASPFunctionBase):
     """
@@ -549,6 +568,60 @@ class Point2DEM(ASPFunctionBase):
         command.extend(**kwargs_to_asp(kwargs))
 
         self._command = command
+
+
+class Point2Las(ASPFunctionBase):
+    """
+    A class to represent the point2las function in the Ames Stereo Pipeline.
+
+    Attributes:
+        asp_bin_dir (str | Path): The directory where the ASP binaries are located.
+        verbose (bool): If True, provide detailed output during execution.
+    """
+
+    def __init__(self, asp_bin_dir: str | Path = None, verbose: bool = False):
+        """
+        Initializes a Point2Las instance.
+
+        Args:
+            asp_bin_dir (str | Path, optional): The directory of the ASP binaries. Default is None.
+            verbose (bool, optional): If True, provide detailed output during execution. Default is False.
+        """
+        super().__init__(asp_bin_dir, verbose)
+
+    def bake(self, input_file: str | Path, **kwargs):
+        """
+        Executes the point2las command with the specified input file and additional parameters.
+
+        Args:
+            input_file (str | Path): The input PC file for the point2las command.
+            **kwargs: Additional keyword arguments to be passed as parameters.
+
+        Raises:
+            FileNotFoundError: If the input PC file does not exist.
+        """
+        # Ensure the input PC file exists
+        if not Path(input_file).exists():
+            raise FileNotFoundError(f"Input file not found: {input_file}")
+
+        # Initialize the Command object with the base command
+        command = Command(cmd="point2las", name="point2las", verbose=self._verbose)
+
+        # Add the input file
+        command.extend(input_file)
+
+        # Add optional keyword arguments
+        command.extend(**kwargs_to_asp(kwargs))
+
+        self._command = command
+
+    def run(self):
+        """
+        Runs the point2las command.
+
+        Executes the command using the run_command function with the defined parameters.
+        """
+        self._command.run()
 
 
 class DEMGeoid(ASPFunctionBase):
