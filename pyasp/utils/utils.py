@@ -122,14 +122,38 @@ def run_command(
 
 
 class Command:
+    """
+    A class to represent a command with its parameters for execution.
+
+    Attributes:
+        cmd (list): The command and its parameters.
+        name (str): A name for the command, default is "Command".
+        silent (bool): If True, suppress output during execution.
+        verbose (bool): If True, provide detailed output during execution.
+        kwargs (dict): Additional keyword arguments for command execution.
+    """
+
     def __init__(
         self,
-        cmd: str | List[str],
+        cmd: str | list[str],
         name: str = "Command",
         silent: bool = False,
         verbose: bool = False,
         **kwargs,
     ):
+        """
+        Initializes a Command instance.
+
+        Args:
+            cmd (str | list[str]): The base command as a string or a list of strings.
+            name (str, optional): The name of the command. Default is "Command".
+            silent (bool, optional): Suppress output if True. Default is False.
+            verbose (bool, optional): Provide detailed output if True. Default is False.
+            **kwargs: Additional keyword arguments for command execution.
+
+        Raises:
+            TypeError: If `cmd` is neither a string nor a list of strings.
+        """
         if isinstance(cmd, str):
             cmd = cmd_string_to_list(cmd)
         elif isinstance(cmd, list):
@@ -142,16 +166,40 @@ class Command:
         self.verbose = verbose
         self.kwargs = kwargs
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """
+        Returns a string representation of the Command.
+
+        Returns:
+            str: The string representation of the Command.
+        """
         return f"{self.name} {cmd_list_to_string(self.cmd)}"
 
     def __repr__(self) -> str:
+        """
+        Returns a detailed string representation of the Command for debugging.
+
+        Returns:
+            str: The string representation for debugging.
+        """
         return f"{self.__class__.__name__}({self.name}: {cmd_list_to_string(self.cmd)})"
 
     def __call__(self):
+        """
+        Executes the command by calling the run_command function with the command parameters.
+
+        Additional arguments from kwargs are passed to the run_command function.
+        """
         run_command(self.cmd, silent=self.silent, verbose=self.verbose, **self.kwargs)
 
     def extend(self, *args, **kwargs):
+        """
+        Extends the command with additional arguments.
+
+        Args:
+            *args: Positional arguments to extend the command.
+            **kwargs: Keyword arguments to add as parameters to the command.
+        """
         if not args and not kwargs:
             return
 
@@ -171,7 +219,43 @@ class Command:
             self.cmd.extend([f"{key}", str(value)])
 
     def run(self):
+        """
+        Runs the command using the run_command function.
+
+        Additional arguments from kwargs are passed to the run_command function.
+        """
         run_command(self.cmd, silent=self.silent, verbose=self.verbose, **self.kwargs)
+
+    def get_parameters(self) -> list[str]:
+        """
+        Returns a list of command parameters and their values (if any).
+
+        Parameters are considered those that start with '--' or '-'.
+
+        Returns:
+            list[str]: A list of parameters and their associated values.
+        """
+        parameters = []
+        skip_next = False
+
+        for i, arg in enumerate(self.cmd):
+            if skip_next:
+                skip_next = False
+                continue
+
+            # Check if the argument is a parameter (starts with -- or -)
+            if arg.startswith("--") or arg.startswith("-"):
+                parameters.append(arg)
+                # If the next argument is not a parameter, it is likely a value for this parameter
+                if (
+                    i + 1 < len(self.cmd)
+                    and not self.cmd[i + 1].startswith("--")
+                    and not self.cmd[i + 1].startswith("-")
+                ):
+                    parameters.append(self.cmd[i + 1])
+                    skip_next = True  # Skip the next argument since it's a value
+
+        return parameters
 
 
 def add_directory_to_path(directory: str | Path):

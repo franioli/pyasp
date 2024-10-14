@@ -1,4 +1,6 @@
 import os
+import re
+import subprocess
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import List
@@ -16,9 +18,66 @@ _threads_multiprocess = (
 _processes = _threads_multiprocess // 4 if _threads_multiprocess > 3 else 1  # 3, 2
 
 
-def check_asp_command(command: str) -> bool:
-    # TODO: Implement this function
+def check_asp_command(command: Command) -> bool:
+    """
+    Verifies that all parameters in the command are valid by comparing them to the
+    valid parameters of the ASP function (retrieved via --help).
+
+    Args:
+        command (Command): The command object containing the ASP function and its parameters.
+
+    Returns:
+        bool: Returns True if all parameters are valid, raises an error otherwise.
+
+    Raises:
+        ValueError: If an invalid parameter is found.
+    """
+
+    # Extract the base ASP command (the first element of the command)
+    asp_command = command.cmd
+
+    # Run the ASP command with the --help flag to get the valid parameters
+    try:
+        result = subprocess.run(
+            [asp_command[0], "--help"], capture_output=True, text=True, check=True
+        )
+        help_output = result.stdout
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"Failed to execute {asp_command} --help: {e}")
+
+    # Parse the help output to extract valid parameters
+    valid_parameters = extract_parameters_from_help(help_output)
+
+    # Get the parameters from the command object
+    provided_parameters = command.get_parameters()
+
+    # Compare each provided parameter with the list of valid parameters
+    for param in provided_parameters:
+        if param.startswith("--") and param not in valid_parameters:
+            raise ValueError(
+                f"Invalid parameter '{param}' for the command '{asp_command}'"
+            )
+
     return True
+
+
+def extract_parameters_from_help(help_output: str) -> List[str]:
+    """
+    Extracts valid parameters from the help output of an ASP command.
+
+    Args:
+        help_output (str): The output of the command run with --help.
+
+    Returns:
+        List[str]: A list of valid parameters.
+    """
+    # Regex to match long options (parameters starting with --)
+    param_regex = re.compile(r"--[a-zA-Z0-9_-]+")
+
+    # Find all matches in the help output
+    parameters = param_regex.findall(help_output)
+
+    return parameters
 
 
 def kwargs_to_asp(dict: dict) -> dict:
@@ -109,14 +168,10 @@ class ASPFunctionBase(ABC):
         """
         if not self._command:
             raise ValueError("Command not set. Please call bake() first.")
-
-        if not check_asp_command(self._command):
-            raise RuntimeError(
-                f"Invalid input command: {self._command}. Please check the ASP documentation and try again."
-            )
-
+        check_asp_command(self._command)
         logger.info(f"Running command: {self._command}")
         self._command.run()
+        logger.info(f"Command {self._command.name} completed successfully.")
 
     @abstractmethod
     def bake(self):
@@ -132,6 +187,15 @@ class ASPFunctionBase(ABC):
 
 
 class ParallelStereo(ASPFunctionBase):
+    """
+    A class to run the parallel_stereo software from the Ames Stereo Pipeline (ASP). https://stereopipeline.readthedocs.io/en/latest/tools/parallel_stereo.html
+
+
+    Args:
+        asp_bin_dir (str): Path to the ASP binaries directory.
+        verbose (bool): If True, enables verbose output for debugging purposes.
+    """
+
     def __init__(self, asp_bin_dir: str | Path = None, verbose: bool = False):
         super().__init__(asp_bin_dir, verbose)
 
@@ -235,10 +299,7 @@ class ParallelStereo(ASPFunctionBase):
 
 class BundleAdjust(ASPFunctionBase):
     """
-    A class to run the bundle_adjust software from the Ames Stereo Pipeline (ASP).
-
-    This class allows for flexible bundling of images and their associated metadata,
-    ensuring optimal adjustment for stereo image processing.
+    A class to run the bundle_adjust software from the Ames Stereo Pipeline (ASP). https://stereopipeline.readthedocs.io/en/latest/tools/bundle_adjust.html
 
     Args:
         asp_bin_dir (str): Path to the ASP binaries directory.
@@ -317,6 +378,15 @@ class BundleAdjust(ASPFunctionBase):
 
 
 class AddSpotRPC(ASPFunctionBase):
+    """
+    A class to run the AddSpotRPC function https://stereopipeline.readthedocs.io/en/latest/tools/add_spot_rpc.html
+
+
+    Args:
+        asp_bin_dir (str): Path to the ASP binaries directory.
+        verbose (bool): If True, enables verbose output for debugging purposes.
+    """
+
     def __init__(self, asp_bin_dir: str | Path = None, verbose: bool = False):
         super().__init__(asp_bin_dir, verbose)
 
@@ -371,6 +441,170 @@ class AddSpotRPC(ASPFunctionBase):
         self._command = command
 
 
+class MapProject(ASPFunctionBase):
+    """
+    A class to run the mapproject function from the Ames Stereo Pipeline (ASP). This class is used for projecting images onto a DEM using camera models. https://stereopipeline.readthedocs.io/en/latest/tools/mapproject.html
+
+
+    Args:
+        asp_bin_dir (str): Path to the ASP binaries directory.
+        verbose (bool): If True, enables verbose output for debugging purposes.
+    """
+
+    def __init__(self, asp_bin_dir: str | Path = None, verbose: bool = False):
+        """
+        Initialize the MapProject class.
+
+        Args:
+            asp_bin_dir (str): Path to the ASP binaries directory.
+            verbose (bool): If True, enables verbose output for debugging purposes.
+        """
+        super().__init__(asp_bin_dir, verbose)
+
+    def bake(
+        self,
+        dem: Path | str,
+        camera_image: Path | str,
+        camera_model: Path | str,
+        output_image: Path | str,
+        **kwargs,
+    ):
+        """
+        Run the ASP mapproject command with the provided parameters.
+
+        Args:
+            dem (Path or str): The DEM file used for map projection.
+            camera_image (Path or str): The camera image to be projected.
+            camera_model (Path or str): The camera model associated with the camera image.
+            output_image (Path or str): The output image file.
+            **kwargs: Additional parameters to pass to the mapproject command.
+
+        Raises:
+            FileNotFoundError: If any of the required files (DEM, camera image, camera model) are missing.
+        """
+
+        # Ensure all input files exist
+        if not Path(dem).exists():
+            raise FileNotFoundError(f"DEM file not found: {dem}")
+
+        if not Path(camera_image).exists():
+            raise FileNotFoundError(f"Camera image file not found: {camera_image}")
+
+        if not Path(camera_model).exists():
+            raise FileNotFoundError(f"Camera model file not found: {camera_model}")
+
+        # Initialize the Command object with the base command
+        command = Command(cmd="mapproject", name="mapproject", verbose=self._verbose)
+
+        # Add positional arguments (DEM, camera-image, camera-model, output-image)
+        command.extend([dem, camera_image, camera_model, output_image])
+
+        # Add optional keyword arguments from kwargs
+        command.extend(**kwargs_to_asp(kwargs))
+
+        self._command = command
+
+
+class Point2DEM(ASPFunctionBase):
+    """
+    A class to represent the Point2DEM function in the Ames Stereo Pipeline. https://stereopipeline.readthedocs.io/en/latest/tools/point2dem.html
+
+    Attributes:
+        asp_bin_dir (str | Path): The directory where the ASP binaries are located.
+        verbose (bool): If True, provide detailed output during execution.
+    """
+
+    def __init__(self, asp_bin_dir: str | Path = None, verbose: bool = False):
+        """
+        Initializes a Point2DEM instance.
+
+        Args:
+            asp_bin_dir (str | Path, optional): The directory of the ASP binaries. Default is None.
+            verbose (bool, optional): If True, provide detailed output during execution. Default is False.
+        """
+        super().__init__(asp_bin_dir, verbose)
+
+    def bake(self, input_file: str | Path, **kwargs):
+        """
+        Executes the Point2DEM command with the specified input file and additional parameters.
+
+        Args:
+            input_file (str | Path): The input file for the Point2DEM command.
+            **kwargs: Additional keyword arguments to be passed as parameters.
+
+        Raises:
+            FileNotFoundError: If the input file does not exist.
+        """
+        # Ensure the input file exists
+        if not Path(input_file).exists():
+            raise FileNotFoundError(f"Input file not found: {input_file}")
+
+        # Initialize the Command object with the base command
+        command = Command(cmd="point2dem", name="point2dem", verbose=self._verbose)
+
+        # Add the input file
+        command.extend(input_file)
+
+        # Add optional keyword arguments
+        command.extend(**kwargs_to_asp(kwargs))
+
+        self._command = command
+
+
+class DEMGeoid(ASPFunctionBase):
+    """
+    A class to represent the dem_geoid function in the Ames Stereo Pipeline. https://stereopipeline.readthedocs.io/en/latest/tools/dem_geoid.html
+
+    Attributes:
+        asp_bin_dir (str | Path): The directory where the ASP binaries are located.
+        verbose (bool): If True, provide detailed output during execution.
+    """
+
+    def __init__(self, asp_bin_dir: str | Path = None, verbose: bool = False):
+        """
+        Initializes a DEMGeoid instance.
+
+        Args:
+            asp_bin_dir (str | Path, optional): The directory of the ASP binaries. Default is None.
+            verbose (bool, optional): If True, provide detailed output during execution. Default is False.
+        """
+        super().__init__(asp_bin_dir, verbose)
+
+    def bake(self, input_dem: str | Path, **kwargs):
+        """
+        Executes the dem_geoid command with the specified input DEM and additional parameters.
+
+        Args:
+            input_dem (str | Path): The input DEM for the dem_geoid command.
+            **kwargs: Additional keyword arguments to be passed as parameters.
+
+        Raises:
+            FileNotFoundError: If the input DEM does not exist.
+        """
+        # Ensure the input DEM exists
+        if not Path(input_dem).exists():
+            raise FileNotFoundError(f"Input DEM file not found: {input_dem}")
+
+        # Initialize the Command object with the base command
+        command = Command(cmd="dem_geoid", name="dem_geoid", verbose=self._verbose)
+
+        # Add the input DEM
+        command.extend(input_dem)
+
+        # Add optional keyword arguments
+        command.extend(**kwargs_to_asp(kwargs))
+
+        self._command = command
+
+    def run(self):
+        """
+        Runs the dem_geoid command.
+
+        Executes the command using the run_command function with the defined parameters.
+        """
+        self._command.run()
+
+
 if __name__ == "__main__":
     add_directory_to_path(
         Path.home() / "StereoPipeline-3.5.0-alpha-2024-10-06-x86_64-Linux/bin"
@@ -382,17 +616,17 @@ if __name__ == "__main__":
     metadata = ["demo/hrs-1.DIM", "demo/hrs-2.DIM"]
     seed_dem = None  # "demo/seed_dem.tif"
 
-    # Add Spot RPC
-    asr = AddSpotRPC()
-    asr.bake(
-        input_metadata_file="demo/hrs-1.DIM",
-        output_prefix="demo/hrs-1.txt",  # or o="demo/hrs-1.txt"
-        min_height=100,
-        max_height=4000,
-    )
-    asr()
+    # # Add Spot RPC
+    # asr = AddSpotRPC()
+    # asr.bake(
+    #     input_metadata_file="demo/hrs-1.DIM",
+    #     output_prefix="demo/hrs-1.txt",  # or o="demo/hrs-1.txt"
+    #     min_height=100,
+    #     max_height=4000,
+    # )
+    # asr()
 
-    # Parallel Stereo
+    # # Parallel Stereo
     # ps = ParallelStereo()
     # ps.bake(
     #     images=images,
@@ -403,3 +637,7 @@ if __name__ == "__main__":
     #     stereo_algorithm="asp_bm",
     # )
     # ps()
+
+    p2d = Point2DEM()
+    p2d.bake("demo/corr-PC.tif", o="output/corr-DEM.tif", r="earth", tr=10)
+    p2d()
