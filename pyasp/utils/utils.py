@@ -173,7 +173,7 @@ class Command:
         Returns:
             str: The string representation of the Command.
         """
-        return f"{self.name} {cmd_list_to_string(self.cmd)}"
+        return f"{cmd_list_to_string(self.cmd)}"
 
     def __repr__(self) -> str:
         """
@@ -182,7 +182,7 @@ class Command:
         Returns:
             str: The string representation for debugging.
         """
-        return f"{self.__class__.__name__}({self.name}: {cmd_list_to_string(self.cmd)})"
+        return f"{self.__class__.__name__}({self.name}: {self})"
 
     def __call__(self):
         """

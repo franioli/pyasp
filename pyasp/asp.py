@@ -39,26 +39,26 @@ def check_asp_command(command: Command) -> bool:
     # Run the ASP command with the --help flag to get the valid parameters
     try:
         result = subprocess.run(
-            [asp_command[0], "--help"], capture_output=True, text=True, check=True
+            [asp_command[0], "--help"], capture_output=True, text=True
         )
         help_output = result.stdout
+
+        # Parse the help output to extract valid parameters
+        valid_parameters = extract_parameters_from_help(help_output)
+
+        # Get the parameters from the command object
+        provided_parameters = command.get_parameters()
+
+        # Compare each provided parameter with the list of valid parameters
+        for param in provided_parameters:
+            if param.startswith("--") and param not in valid_parameters:
+                raise ValueError(
+                    f"Invalid parameter '{param}' for the command '{command}'"
+                )
+        return True
+
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"Failed to execute {asp_command} --help: {e}")
-
-    # Parse the help output to extract valid parameters
-    valid_parameters = extract_parameters_from_help(help_output)
-
-    # Get the parameters from the command object
-    provided_parameters = command.get_parameters()
-
-    # Compare each provided parameter with the list of valid parameters
-    for param in provided_parameters:
-        if param.startswith("--") and param not in valid_parameters:
-            raise ValueError(
-                f"Invalid parameter '{param}' for the command '{asp_command}'"
-            )
-
-    return True
 
 
 def extract_parameters_from_help(help_output: str) -> List[str]:
@@ -572,7 +572,7 @@ class Point2DEM(ASPFunctionBase):
 
 class Point2Las(ASPFunctionBase):
     """
-    A class to represent the point2las function in the Ames Stereo Pipeline.
+    A class to represent the point2las function in the Ames Stereo Pipeline. https://stereopipeline.readthedocs.io/en/latest/tools/point2las.html
 
     Attributes:
         asp_bin_dir (str | Path): The directory where the ASP binaries are located.
@@ -711,6 +711,13 @@ if __name__ == "__main__":
     # )
     # ps()
 
-    p2d = Point2DEM()
-    p2d.bake("demo/corr-PC.tif", o="output/corr-DEM.tif", r="earth", tr=10)
-    p2d()
+    # p2d = Point2DEM()
+    # p2d.bake("demo/corr-PC.tif", o="output/corr-DEM.tif", r="earth", tr=10)
+    # p2d()
+
+    p2l = Point2Las()
+    p2l.bake(
+        "/home/francesco/uzh/aletsch_spot5/ASP_proc/output/corr/corr-PC.tif",
+        o="/home/francesco/uzh/aletsch_spot5/ASP_proc/output/corr/corr-pcd.las",
+    )
+    p2l()
