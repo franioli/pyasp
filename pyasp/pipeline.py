@@ -31,11 +31,11 @@ class AmesStereoPipelineBase(ABC):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__} Pipeline with steps: {self._pipeline}"
 
-    def run_pipeline(self):
+    def run(self):
         """Run the entire stereo pipeline."""
         for step in self._pipeline:
             logger.info(f"Running step: {step}")
-            step.run()
+            step()
             logger.info(f"Finished step: {step}. Time elapsed: {step.elapsed_time}")
 
 
@@ -45,40 +45,41 @@ class Spot5Pipeline(AmesStereoPipelineBase):
     def __init__(
         self,
         steps: List[AspStepBase] | dict[str, AspStepBase],
-        front_dir: Path,
-        back_dir: Path,
-        seed_dem_path: Path,
-        output_dir: Path,
     ):
-        super().__init__()
+        super().__init__(steps=steps)
 
-        self.create_symlinks(front_scene=front_dir, back_scene=back_dir)
-
-    def create_symlinks(self, front_scene: Path, back_scene: Path):
+    @staticmethod
+    def create_symlinks(front_scene: Path, back_scene: Path):
         """Create symbolic links for front and back imagery and metadata."""
-        try:
-            # Front Symlinks
-            front_metadata_link = front_scene / "METADATA_FRONT.DIM"
-            front_imagery_link = front_scene / "IMAGERY_FRONT.TIF"
-            if not front_metadata_link.exists():
-                front_metadata_link.symlink_to(front_scene / "METADATA.DIM")
-            if not front_imagery_link.exists():
-                front_imagery_link.symlink_to(front_scene / "IMAGERY.TIF")
 
-            # Back Symlinks
-            back_metadata_link = back_scene / "METADATA_BACK.DIM"
-            back_imagery_link = back_scene / "IMAGERY_BACK.TIF"
-            if not back_metadata_link.exists():
-                back_metadata_link.symlink_to(back_scene / "METADATA.DIM")
-            if not back_imagery_link.exists():
-                back_imagery_link.symlink_to(back_scene / "IMAGERY.TIF")
+        name_map = {front_scene: "front", back_scene: "back"}
 
-            self.logger.debug(
-                "Created symbolic links for front and back imagery and metadata."
-            )
-        except Exception as e:
-            self.logger.error(f"Failed to create symlinks: {e}")
-            raise AmesStereoPipelineError("Symlink creation failed.") from e
+        for scene in [front_scene, back_scene]:
+            scene_name = name_map[scene]
+
+            # Define the symlink paths
+            imagery_link = scene / f"IMAGERY_{scene_name.upper()}.TIF"
+            metadata_link = scene / f"METADATA_{scene_name.upper()}.DIM"
+
+            # Define the target paths and ensure they're absolute
+            imagery_target = (scene / "IMAGERY.TIF").resolve()
+            metadata_target = (scene / "METADATA.DIM").resolve()
+
+            # Remove existing symlinks if present
+            if imagery_link.is_symlink() or imagery_link.exists():
+                imagery_link.unlink()
+            if metadata_link.is_symlink() or metadata_link.exists():
+                metadata_link.unlink()
+
+            try:
+                # Create symbolic links using absolute paths
+                imagery_link.symlink_to(imagery_target)
+                metadata_link.symlink_to(metadata_target)
+            except Exception as e:
+                logger.error(f"Failed to create symlinks: {e}")
+                raise AmesStereoPipelineError("Symlink creation failed.") from e
+
+        logger.debug("Created symbolic links for front and back imagery and metadata.")
 
 
 if __name__ == "__main__":
@@ -89,20 +90,49 @@ if __name__ == "__main__":
     )
 
     front_dir = Path(
-        "demo/002-006_S5_053-256-0_2005-01-04-10-34-09_HRS-1_S_DT_TT/SCENE01"
+        "demo/data/img/002-006_S5_053-256-0_2005-01-04-10-34-09_HRS-1_S_DT_TT/SCENE01"
     )
     back_dir = Path(
-        "demo/002-006_S5_053-256-0_2005-01-04-10-35-40_HRS-2_S_DT_TT/SCENE01"
+        "demo/data/img/002-006_S5_053-256-0_2005-01-04-10-35-40_HRS-2_S_DT_TT/SCENE01"
     )
-    seed_dem_path = Path("demo/COP-DEM_GLO-30-DGED__2023_1_32632.tif")
+    seed_dem_path = Path("demo/data/COP-DEM_GLO-30-DGED__2023_1_32632.tif")
     output_dir = Path("demo/output")
 
+    image_pair = [
+        front_dir / "IMAGERY_FRONT.TIF",  # Front imagery
+        back_dir / "IMAGERY_BACK.TIF",  # Back imagery
+    ]
+    camera_pair = [
+        front_dir / "METADATA_FRONT.DIM",  # Front metadata
+        back_dir / "METADATA_BACK.DIM",  # Back metadata
+    ]
+
+    Spot5Pipeline.create_symlinks(front_scene=front_dir, back_scene=back_dir)
+
     steps = {
-        "rpc_front": AddSpotRPC(input_metadata_file=front_dir / "METADATA.DIM"),
-        "rpc_back": AddSpotRPC(input_metadata_file=back_dir / "METADATA.DIM"),
-        "ba": BundleAdjust(),
-        "map": MapProject(),
-        "stereo": ParallelStereo(),
+        # "rpc_front": AddSpotRPC(
+        #     input_metadata_file=front_dir / "METADATA.DIM",
+        #     min_height=100,
+        #     max_height=4500,
+        # ),
+        # "rpc_back": AddSpotRPC(
+        #     input_metadata_file=back_dir / "METADATA.DIM",
+        #     min_height=100,
+        #     max_height=4500,
+        # ),
+        "ba": BundleAdjust(
+            images=image_pair,
+            cameras=camera_pair,
+            output_prefix="output/ba_run",
+            t="spot5",
+            # elevation_limit="0 4500",
+            ip_per_tile=500,
+            matches_per_tile=100,
+            threads=16,
+        ),
+        # "map": MapProject(),
+        # "stereo": ParallelStereo(),
     }
 
-    pipeline = Spot5Pipeline(steps)
+    pipeline = Spot5Pipeline(steps=steps)
+    pipeline.run()

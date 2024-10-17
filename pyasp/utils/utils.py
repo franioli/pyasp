@@ -71,7 +71,7 @@ class OutputCapture:
 
 def run_command(
     command: List[str] | str, silent: bool = False, verbose: bool = False, **kwargs
-) -> subprocess.CompletedProcess:
+) -> bool:
     """
     Run a shell command, capture output in real time, and handle errors.
 
@@ -111,14 +111,14 @@ def run_command(
                 logger.info(result.stdout)
         except subprocess.CalledProcessError as e:
             logger.error(e.stderr)
-            return
+            return False
 
         if verbose:
             end_time = time.perf_counter()
             total_time = end_time - start_time
             logger.info(f"Function {command[0]} took {total_time:.4f} s.")
 
-    return result
+    return True
 
 
 class Command:
@@ -184,13 +184,13 @@ class Command:
         """
         return f"{self.__class__.__name__}({self.name}: {self})"
 
-    def __call__(self):
+    def __call__(self) -> bool:
         """
         Executes the command by calling the run_command function with the command parameters.
 
         Additional arguments from kwargs are passed to the run_command function.
         """
-        run_command(self.cmd, silent=self.silent, verbose=self.verbose, **self.kwargs)
+        return self.run()
 
     def extend(self, *args, **kwargs):
         """
@@ -224,7 +224,9 @@ class Command:
 
         Additional arguments from kwargs are passed to the run_command function.
         """
-        run_command(self.cmd, silent=self.silent, verbose=self.verbose, **self.kwargs)
+        return run_command(
+            self.cmd, silent=self.silent, verbose=self.verbose, **self.kwargs
+        )
 
     def get_parameters(self) -> list[str]:
         """

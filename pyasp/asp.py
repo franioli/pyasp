@@ -23,6 +23,19 @@ _threads_multiprocess = (
 _processes = _threads_multiprocess // 4 if _threads_multiprocess > 3 else 1  # 3, 2
 
 
+def check_file_exists(path: Path | str) -> bool:
+    path = Path(path)
+    if path.is_symlink():
+        target_path = path.readlink()
+        if not target_path.exists():
+            raise FileNotFoundError(f"Target of symlink not found: {target_path}")
+    else:
+        if not path.exists():
+            raise FileNotFoundError(f"File not found: {path}")
+
+    return True
+
+
 def check_asp_command(command: Command) -> bool:
     """
     Verifies that all parameters in the command are valid by comparing them to the
@@ -185,11 +198,38 @@ class AspStepBase(ABC):
 
         logger.info(f"Running command: {self._command}")
         start_time = time.perf_counter()
-        self._command.run()
-        self._elaspsed_time = time.perf_counter() - start_time
-        logger.info(
-            f"Command {self._command.name} completed successfully. Total time: {self._elaspsed_time:.2f} seconds"
-        )
+        ret = self._command.run()
+        if ret:
+            self._elaspsed_time = time.perf_counter() - start_time
+            logger.info(
+                f"Command {self._command.name} completed successfully. Total time: {self._elaspsed_time:.2f} seconds"
+            )
+        else:
+            raise RuntimeError(
+                f"ASP processing step '{self._command.name}' failed [command: '{self._command}']."
+            )
+
+    @property
+    def command(self) -> Command:
+        """
+        Return the command object.
+
+        Returns:
+            Command: The command object.
+        """
+        return self._command
+
+    @property
+    def elapsed_time(self) -> float:
+        """
+        Return the elapsed time of the last command execution.
+
+        Returns:
+            float: The elapsed time in seconds.
+        """
+        if self._elaspsed_time is None:
+            logger.info("The step has not been executed yet.")
+        return self._elaspsed_time
 
     @classmethod
     def from_command(cls, command: Command | str):
@@ -341,15 +381,13 @@ class BundleAdjust(AspStepBase):
         # First call the parent class constructor to handle binary checks
         super().__init__(asp_bin_dir=asp_bin_dir, verbose=verbose)
 
-        # Ensure all image files exist
-        for image in images:
-            if not Path(image).exists():
-                raise FileNotFoundError(f"Image file not found: {image}")
+        # Ensure all image files exist (following symlinks)
+        for path in images:
+            check_file_exists(path)
 
-        # Ensure all camera files exist
+        # Ensure all camera files exist (following symlinks)
         for camera in cameras:
-            if not Path(camera).exists():
-                raise FileNotFoundError(f"Camera file not found: {camera}")
+            check_file_exists(camera)
 
         # Ensure the number of camera files matches the number of images
         if len(cameras) != len(images):
