@@ -216,8 +216,18 @@ class Command:
         # Extend the command with additional keyword arguments
         for key, value in kwargs.items():
             # Handle boolean flags (no value)
-            if value is True:
+            if isinstance(value, bool) and value is True:
                 self.cmd.append(f"{key}")
+                continue
+            if isinstance(value, bool) and value is False:
+                continue
+
+            # Handle empty strings
+            if isinstance(value, str) and value == "":
+                continue
+
+            # Handle no value for the key
+            if value is None:
                 continue
 
             # Handle the case where the value is a list

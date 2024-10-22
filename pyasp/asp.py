@@ -527,7 +527,7 @@ class MapProject(AspStepBase):
         self._command = command
 
 
-class Point2DEM(AspStepBase):
+class Point2dem(AspStepBase):
     """
     A class to represent the Point2DEM function in the Ames Stereo Pipeline. https://stereopipeline.readthedocs.io/en/latest/tools/point2dem.html
     """
@@ -540,7 +540,7 @@ class Point2DEM(AspStepBase):
         **kwargs,
     ):
         """
-        Initializes a Point2DEM instance and constructs the command.
+        Initializes a Point2dem instance and constructs the command.
 
         Args:
             input_file (str | Path): The input file for the Point2DEM command.
@@ -570,7 +570,7 @@ class Point2DEM(AspStepBase):
         self._command = command
 
 
-class Point2Las(AspStepBase):
+class Point2las(AspStepBase):
     """
     A class to represent the point2las function in the Ames Stereo Pipeline. https://stereopipeline.readthedocs.io/en/latest/tools/point2las.html
 
@@ -688,7 +688,7 @@ if __name__ == "__main__":
     )
     ps()
 
-    p2d = Point2DEM(
+    p2d = Point2dem(
         "/home/francesco/uzh/aletsch_spot5/ASP_proc/output/corr/corr-PC.tif",
         o="output/corr-DEM.tif",
         tr=10,
@@ -696,7 +696,7 @@ if __name__ == "__main__":
     )
     p2d()
 
-    p2l = Point2Las(
+    p2l = Point2las(
         "/home/francesco/uzh/aletsch_spot5/ASP_proc/output/corr/corr-PC.tif",
         o="/home/francesco/uzh/aletsch_spot5/ASP_proc/output/corr/corr-pcd.las",
     )
