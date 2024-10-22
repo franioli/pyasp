@@ -135,7 +135,7 @@ class AspStepBase(ABC):
     _command = None
     _verbose = False
     _asp_bin_dir = None
-    _skip_check = False
+    _skip_checkss = False
     _elaspsed_time = None
 
     def __init__(self, asp_bin_dir: str | Path = None, verbose: bool = False):
@@ -175,7 +175,7 @@ class AspStepBase(ABC):
         """
         return f"{self.__class__.__name__} - '{self._command}'"
 
-    def __call__(self, skip_check: bool = False):
+    def __call__(self, skip_checks: bool = False):
         """
         Execute the constructed ASP command.
 
@@ -183,17 +183,16 @@ class AspStepBase(ABC):
         It raises an error if the command has not been set.
 
         Args:
-            skip_check (bool, optional):
-                If set to True, the command will not be checked for valid parameters before execution. Defaults to False.
+            skip_check (bool, optional): If set to True, the command will not be checked for valid parameters before execution. Defaults to False.
 
         Raises:
             ValueError: If the command has not been set by calling `bake`.
             RuntimeError: If the command execution fails.
         """
-        if skip_check:
-            self._skip_check = True
-
-        if not self._skip_check:
+        if skip_checks:
+            self.skip_checks = True
+        else:
+            # Check the command for valid parameters
             check_asp_command(self._command)
 
         logger.info(f"Running command: {self._command}")
@@ -208,6 +207,18 @@ class AspStepBase(ABC):
             raise RuntimeError(
                 f"ASP processing step '{self._command.name}' failed [command: '{self._command}']."
             )
+
+    # @abstractmethod
+    # def check_inputs(self) -> bool:
+    #     """
+    #     Check the input files for the ASP command.
+
+    #     This method should be implemented by subclasses to ensure that all required input files are present.
+
+    #     Raises:
+    #         FileNotFoundError: If any required input files are missing.
+    #     """
+    #     raise NotImplementedError
 
     @property
     def command(self) -> Command:
@@ -285,34 +296,6 @@ class ParallelStereo(AspStepBase):
         # Call the parent constructor to check binary existence
         super().__init__(asp_bin_dir=asp_bin_dir, verbose=verbose)
 
-        # Ensure all image files exist
-        for image in images:
-            if not Path(image).exists():
-                raise FileNotFoundError(f"Image file not found: {image}")
-
-        # Check if cameras are required and validate them
-        if cameras is None:
-            if any("ISIS" not in str(image) for image in images):
-                raise ValueError("Camera files are required for non-ISIS images.")
-        else:
-            # Ensure all camera files exist
-            for camera in cameras:
-                if not Path(camera).exists():
-                    raise FileNotFoundError(f"Camera file not found: {camera}")
-
-            # Ensure the number of camera files matches the number of images
-            if len(cameras) != len(images):
-                raise ValueError(
-                    "The number of camera files must match the number of images."
-                )
-
-        # Check if DEM is required for mapprojected images
-        if dem is not None:
-            if not Path(dem).exists():
-                raise FileNotFoundError(f"DEM file not found: {dem}")
-        elif any("map_proj" in str(image) for image in images):
-            raise ValueError("DEM file is required for mapprojected images.")
-
         # Construct the command object
         command = Command(
             cmd="parallel_stereo", name="parallel_stereo", verbose=self._verbose
@@ -342,7 +325,45 @@ class ParallelStereo(AspStepBase):
         logger.info(
             "Skipping command check for parallel_stereo. Some parameters may not be validated."
         )
-        self._skip_check = True
+        self._skip_checks = True
+
+    # def check_inputs(self):
+    #     """
+    #     Check the input files for the parallel_stereo command.
+
+    #     This method ensures that all required input files are present before
+    #     executing the parallel_stereo command.
+
+    #     Raises:
+    #         FileNotFoundError: If any required input files are missing.
+    #     """
+    #     # Ensure all image files exist
+    #     for image in images:
+    #         if not Path(image).exists():
+    #             raise FileNotFoundError(f"Image file not found: {image}")
+
+    #     # Check if cameras are required and validate them
+    #     if cameras is None:
+    #         if any("ISIS" not in str(image) for image in images):
+    #             raise ValueError("Camera files are required for non-ISIS images.")
+    #     else:
+    #         # Ensure all camera files exist
+    #         for camera in cameras:
+    #             if not Path(camera).exists():
+    #                 raise FileNotFoundError(f"Camera file not found: {camera}")
+
+    #         # Ensure the number of camera files matches the number of images
+    #         if len(cameras) != len(images):
+    #             raise ValueError(
+    #                 "The number of camera files must match the number of images."
+    #             )
+
+    #     # Check if DEM is required for mapprojected images
+    #     if dem is not None:
+    #         if not Path(dem).exists():
+    #             raise FileNotFoundError(f"DEM file not found: {dem}")
+    #     elif any("map_proj" in str(image) for image in images):
+    #         raise ValueError("DEM file is required for mapprojected images.")
 
 
 class BundleAdjust(AspStepBase):
@@ -381,13 +402,13 @@ class BundleAdjust(AspStepBase):
         # First call the parent class constructor to handle binary checks
         super().__init__(asp_bin_dir=asp_bin_dir, verbose=verbose)
 
-        # Ensure all image files exist (following symlinks)
-        for path in images:
-            check_file_exists(path)
+        # # Ensure all image files exist (following symlinks)
+        # for path in images:
+        #     check_file_exists(path)
 
-        # Ensure all camera files exist (following symlinks)
-        for camera in cameras:
-            check_file_exists(camera)
+        # # Ensure all camera files exist (following symlinks)
+        # for camera in cameras:
+        #     check_file_exists(camera)
 
         # Ensure the number of camera files matches the number of images
         if len(cameras) != len(images):
@@ -448,10 +469,10 @@ class AddSpotRPC(AspStepBase):
         super().__init__(asp_bin_dir=asp_bin_dir, verbose=verbose)
 
         # Ensure the input metadata file exists
-        if not Path(input_metadata_file).exists():
-            raise FileNotFoundError(
-                f"Input metadata file not found: {input_metadata_file}"
-            )
+        # if not Path(input_metadata_file).exists():
+        #     raise FileNotFoundError(
+        #         f"Input metadata file not found: {input_metadata_file}"
+        #     )
 
         # Initialize the Command object with the base command
         command = Command(
@@ -507,12 +528,12 @@ class MapProject(AspStepBase):
         super().__init__(asp_bin_dir=asp_bin_dir, verbose=verbose)
 
         # Ensure all input files exist
-        if not Path(dem).exists():
-            raise FileNotFoundError(f"DEM file not found: {dem}")
-        if not Path(camera_image).exists():
-            raise FileNotFoundError(f"Camera image file not found: {camera_image}")
-        if not Path(camera_model).exists():
-            raise FileNotFoundError(f"Camera model file not found: {camera_model}")
+        # if not Path(dem).exists():
+        #     raise FileNotFoundError(f"DEM file not found: {dem}")
+        # if not Path(camera_image).exists():
+        #     raise FileNotFoundError(f"Camera image file not found: {camera_image}")
+        # if not Path(camera_model).exists():
+        #     raise FileNotFoundError(f"Camera model file not found: {camera_model}")
 
         # Initialize the Command object with the base command
         command = Command(cmd="mapproject", name="mapproject", verbose=self._verbose)
@@ -554,8 +575,8 @@ class Point2dem(AspStepBase):
         super().__init__(asp_bin_dir, verbose)
 
         # Ensure the input file exists
-        if not Path(input_file).exists():
-            raise FileNotFoundError(f"Input file not found: {input_file}")
+        # if not Path(input_file).exists():
+        #     raise FileNotFoundError(f"Input file not found: {input_file}")
 
         # Initialize the Command object with the base command
         command = Command(cmd="point2dem", name="point2dem", verbose=self._verbose)
@@ -598,8 +619,8 @@ class Point2las(AspStepBase):
         super().__init__(asp_bin_dir, verbose)
 
         # Ensure the input file exists
-        if not Path(input_file).exists():
-            raise FileNotFoundError(f"Input file not found: {input_file}")
+        # if not Path(input_file).exists():
+        #     raise FileNotFoundError(f"Input file not found: {input_file}")
 
         # Initialize the Command object with the base command
         command = Command(cmd="point2las", name="point2las", verbose=self._verbose)
@@ -641,8 +662,8 @@ class DEMGeoid(AspStepBase):
         super().__init__(asp_bin_dir, verbose)
 
         # Ensure the input DEM exists
-        if not Path(input_dem).exists():
-            raise FileNotFoundError(f"Input DEM file not found: {input_dem}")
+        # if not Path(input_dem).exists():
+        #     raise FileNotFoundError(f"Input DEM file not found: {input_dem}")
 
         # Initialize the Command object with the base command
         command = Command(cmd="dem_geoid", name="dem_geoid", verbose=self._verbose)

@@ -279,6 +279,36 @@ class Command:
 
         return parameters
 
+    def get_positional_arguments(self) -> list[str]:
+        """
+        Returns a list of positional arguments.
+
+        Positional arguments are considered those that do not start with '--' or '-'.
+
+        Returns:
+            list[str]: A list of positional arguments.
+        """
+        return [
+            arg
+            for arg in self.cmd
+            if not arg.startswith("--") and not arg.startswith("-")
+        ]
+
+    def get_keywork_argument(self, key: str) -> str:
+        """
+        Returns the value of a keyword argument.
+
+        Args:
+            key (str): The keyword argument to retrieve.
+
+        Returns:
+            str: The value of the keyword argument.
+        """
+        for i, arg in enumerate(self.cmd):
+            if arg == key:
+                return self.cmd[i + 1]
+        return None
+
 
 def add_directory_to_path(directory: str | Path):
     """
