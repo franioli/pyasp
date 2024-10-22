@@ -39,51 +39,73 @@ class AmesStereoPipelineBase(ABC):
             logger.info(f"Finished step: {step}. Time elapsed: {step.elapsed_time}")
 
 
+def create_spot5_symlinks(front_scene: Path, back_scene: Path):
+    """Create symbolic links for front and back imagery and metadata."""
+
+    name_map = {front_scene: "front", back_scene: "back"}
+
+    for scene in [front_scene, back_scene]:
+        scene_name = name_map[scene]
+
+        # Define the symlink paths
+        imagery_link = scene / f"IMAGERY_{scene_name.upper()}.TIF"
+        metadata_link = scene / f"METADATA_{scene_name.upper()}.DIM"
+
+        # Define the target paths and ensure they're absolute
+        imagery_target = (scene / "IMAGERY.TIF").resolve()
+        metadata_target = (scene / "METADATA.DIM").resolve()
+
+        # Remove existing symlinks if present
+        if imagery_link.is_symlink() or imagery_link.exists():
+            imagery_link.unlink()
+        if metadata_link.is_symlink() or metadata_link.exists():
+            metadata_link.unlink()
+
+        try:
+            # Create symbolic links using absolute paths
+            imagery_link.symlink_to(imagery_target)
+            metadata_link.symlink_to(metadata_target)
+        except Exception as e:
+            logger.error(f"Failed to create symlinks: {e}")
+            raise AmesStereoPipelineError("Symlink creation failed.") from e
+
+    logger.debug("Created symbolic links for front and back imagery and metadata.")
+
+
 class Spot5Pipeline(AmesStereoPipelineBase):
     _sensor = "Spot5"
+
+    _pre_defined = {"mapprojected_sgm": {}}
 
     def __init__(
         self,
         steps: List[AspStepBase] | dict[str, AspStepBase],
+        front_scene: Path = None,
+        back_scene: Path = None,
     ):
+        if front_scene and back_scene:
+            self.create_symlinks(front_scene=front_scene, back_scene=back_scene)
         super().__init__(steps=steps)
 
-    @staticmethod
-    def create_symlinks(front_scene: Path, back_scene: Path):
+    def create_symlinks(self, front_scene: Path, back_scene: Path):
         """Create symbolic links for front and back imagery and metadata."""
+        create_spot5_symlinks(front_scene=front_scene, back_scene=back_scene)
 
-        name_map = {front_scene: "front", back_scene: "back"}
+    @classmethod
+    def from_predefined(cls, pipeline_name: str, **kwargs):
+        pass
 
-        for scene in [front_scene, back_scene]:
-            scene_name = name_map[scene]
+    @classmethod
+    def from_config(cls, config_path: Path):
+        pass
 
-            # Define the symlink paths
-            imagery_link = scene / f"IMAGERY_{scene_name.upper()}.TIF"
-            metadata_link = scene / f"METADATA_{scene_name.upper()}.DIM"
-
-            # Define the target paths and ensure they're absolute
-            imagery_target = (scene / "IMAGERY.TIF").resolve()
-            metadata_target = (scene / "METADATA.DIM").resolve()
-
-            # Remove existing symlinks if present
-            if imagery_link.is_symlink() or imagery_link.exists():
-                imagery_link.unlink()
-            if metadata_link.is_symlink() or metadata_link.exists():
-                metadata_link.unlink()
-
-            try:
-                # Create symbolic links using absolute paths
-                imagery_link.symlink_to(imagery_target)
-                metadata_link.symlink_to(metadata_target)
-            except Exception as e:
-                logger.error(f"Failed to create symlinks: {e}")
-                raise AmesStereoPipelineError("Symlink creation failed.") from e
-
-        logger.debug("Created symbolic links for front and back imagery and metadata.")
+    @classmethod
+    def from_dict(cls, config_dict: dict):
+        pass
 
 
 if __name__ == "__main__":
-    from pyasp.asp import *
+    from pyasp.asp import BundleAdjust, add_directory_to_path
 
     add_directory_to_path(
         Path.home() / "StereoPipeline-3.5.0-alpha-2024-10-06-x86_64-Linux/bin"
@@ -107,8 +129,6 @@ if __name__ == "__main__":
         back_dir / "METADATA_BACK.DIM",  # Back metadata
     ]
 
-    Spot5Pipeline.create_symlinks(front_scene=front_dir, back_scene=back_dir)
-
     steps = {
         # "rpc_front": AddSpotRPC(
         #     input_metadata_file=front_dir / "METADATA.DIM",
@@ -123,9 +143,9 @@ if __name__ == "__main__":
         "ba": BundleAdjust(
             images=image_pair,
             cameras=camera_pair,
+            elevation_limit=[0, 4500],
             output_prefix="output/ba_run",
             t="spot5",
-            # elevation_limit="0 4500",
             ip_per_tile=500,
             matches_per_tile=100,
             threads=16,
@@ -134,5 +154,5 @@ if __name__ == "__main__":
         # "stereo": ParallelStereo(),
     }
 
-    pipeline = Spot5Pipeline(steps=steps)
+    pipeline = Spot5Pipeline(steps=steps, front_scene=front_dir, back_scene=back_dir)
     pipeline.run()

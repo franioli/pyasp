@@ -414,6 +414,10 @@ class BundleAdjust(AspStepBase):
 
         self._command = command
 
+    def read_match_file(self, match_file: Path):
+        """Read an ASP match file."""
+        pass
+
 
 class AddSpotRPC(AspStepBase):
     """

@@ -26,6 +26,7 @@ dependencies = [
     "rasterio",
     "pyproj",
     "tqdm",
+    "xdem",
 ]
 requires-python = ">=3.10"
 

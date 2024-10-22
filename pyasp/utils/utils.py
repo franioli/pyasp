@@ -203,19 +203,29 @@ class Command:
         if not args and not kwargs:
             return
 
-        # Extend the command with each element of the args (handling lists of arguments)
+        # Extend the command with the positional arguments
         for arg in args:
+            # Handle the case where the argument is a list: Convert list elements to strings
             if isinstance(arg, list):
-                self.cmd.extend(
-                    map(str, arg)
-                )  # Convert list elements to strings and extend the command
-            else:
-                self.cmd.append(
-                    str(arg)
-                )  # Convert single elements to string and append to the command
+                self.cmd.extend(map(str, arg))
+                continue
+
+            # Convert single elements to string and append to the command
+            self.cmd.append(str(arg))
 
         # Extend the command with additional keyword arguments
         for key, value in kwargs.items():
+            # Handle boolean flags (no value)
+            if value is True:
+                self.cmd.append(f"{key}")
+                continue
+
+            # Handle the case where the value is a list
+            if isinstance(value, list):
+                self.cmd.extend([f"{key}", *map(str, value)])
+                continue
+
+            # Add the key and value as separate arguments
             self.cmd.extend([f"{key}", str(value)])
 
     def run(self):
