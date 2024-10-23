@@ -679,7 +679,9 @@ class DEMGeoid(AspStepBase):
 
 
 if __name__ == "__main__":
-    add_directory_to_path(
+    import pyasp
+
+    pyasp.add_asp_binary(
         Path.home() / "StereoPipeline-3.5.0-alpha-2024-10-06-x86_64-Linux/bin"
     )
 

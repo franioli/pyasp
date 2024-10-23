@@ -2,7 +2,7 @@ import subprocess
 
 import pytest
 
-from pyasp.utils.utils import (
+from pyasp.utils.shell import (
     Command,
     cmd_list_to_string,
     cmd_string_to_list,

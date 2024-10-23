@@ -2,15 +2,15 @@ from abc import ABC
 from pathlib import Path
 from typing import List
 
+from pyproj import crs
+
 from pyasp import logger
 from pyasp.asp import (
     AddSpotRPC,
     AspStepBase,
     BundleAdjust,
-    DEMGeoid,
     MapProject,
     ParallelStereo,
-    Point2dem,
 )
 
 config_dict = {
@@ -173,11 +173,12 @@ class Spot5Pipeline(AmesStereoPipelineBase):
                     max_height=config_dict["pre_process"]["max_height"],
                 )
             )
+
+        # Create symbolic links for front and back imagery and metadata
+        create_spot5_symlinks(front_scene=cls._front_scene, back_scene=cls._back_scene)
+
         if config_dict["pre_process"]["do_bundle_adjust"]:
-            # Create symbolic links for front and back imagery and metadata
-            create_spot5_symlinks(
-                front_scene=cls._front_scene, back_scene=cls._back_scene
-            )
+            ba_prefix = cls._out_dir / "ba_run"
             cls._pipeline.append(
                 BundleAdjust(
                     images=[
@@ -188,7 +189,7 @@ class Spot5Pipeline(AmesStereoPipelineBase):
                         cls._front_scene / "METADATA_FRONT.DIM",
                         cls._back_scene / "METADATA_BACK.DIM",
                     ],
-                    output_prefix=cls._out_dir / "ba_run",
+                    output_prefix=ba_prefix,
                     t="spot5",
                     elevation_limit=[
                         config_dict["pre_process"]["min_height"],
@@ -196,52 +197,69 @@ class Spot5Pipeline(AmesStereoPipelineBase):
                     ],
                 )
             )
+        else:
+            ba_prefix = None
 
         if config_dict["pre_process"]["do_mapproject"]:
+            proj4 = crs.CRS.from_epsg(config_dict["pre_process"]["epsg"]).to_proj4()
+
             cls._pipeline.append(
                 MapProject(
-                    output_proj=cls._out_dir / "front_map_proj.tif",
-                    scene=cls._front_scene,
-                    ba_output_dir=cls._out_dir,
-                    prefix="front",
+                    dem=cls._dem_path,
+                    camera_image=cls._front_scene / "IMAGERY_FRONT.TIF",
+                    camera_model=cls._front_scene / "METADATA_FRONT.DIM",
+                    output_image=cls._out_dir / "IMAGERY_BACK_MapProj.tif",
+                    t="rpc",
+                    tr=config_dict["pre_process"]["mapproj_resolution"],
+                    t_srs=proj4,
+                    bundle_adjust_prefix=ba_prefix,
                 )
             )
             cls._pipeline.append(
                 MapProject(
-                    output_proj=cls._out_dir / "back_map_proj.tif",
-                    scene=cls._back_scene,
-                    ba_output_dir=cls._out_dir,
-                    prefix="back",
+                    dem=cls._dem_path,
+                    camera_image=cls._back_scene / "IMAGERY_BACK.TIF",
+                    camera_model=cls._back_scene / "METADATA_BACK.DIM",
+                    output_image=cls._out_dir / "IMAGERY_BACK_MapProj.tif",
+                    t="rpc",
+                    tr=config_dict["pre_process"]["mapproj_resolution"],
+                    t_srs=proj4,
+                    bundle_adjust_prefix=ba_prefix,
                 )
             )
-
-        cls._pipeline.append(
-            ParallelStereo(
-                front_map_proj_ba=cls._out_dir / "front_map_proj.tif",
-                back_map_proj_ba=cls._out_dir / "back_map_proj.tif",
-                front_metadata=cls._front_scene / "METADATA_FRONT.DIM",
-                back_metadata=cls._back_scene / "METADATA_BACK.DIM",
-                tmp_out=cls._out_dir / "tmp",
-                seed_dem=cls._dem_path,
-            )
-        )
-
-        cls._pipeline.append(
-            Point2dem(
-                stereo_output=cls._out_dir / "tmp",
-                output_dem=cls._out_dir / "final_dem.tif",
-                resolution=config_dict["stereo"]["dem_resolution"],
-            )
-        )
-
-        if config_dict["post_process"]["geoid"] != -1:
             cls._pipeline.append(
-                DEMGeoid(
-                    input_dem=cls._dem_path,
-                    output_dem=cls._out_dir / "geoid.tif",
-                    geoid=config_dict["post_process"]["geoid"],
+                ParallelStereo(
+                    images=[
+                        cls._out_dir / "IMAGERY_FRONT_MapProj.tif",
+                        cls._out_dir / "IMAGERY_BACK_MapProj.tif",
+                    ],
+                    cameras=[
+                        cls._front_scene / "METADATA_FRONT.DIM",
+                        cls._back_scene / "METADATA_BACK.DIM",
+                    ],
+                    output_prefix=cls._out_dir / "cor",
+                    dem=cls._dem_path,
                 )
             )
+
+        # cls._pipeline.append(
+        #     Point2dem(
+        #         stereo_output=cls._out_dir / "tmp",
+        #         output_dem=cls._out_dir / "final_dem.tif",
+        #         resolution=config_dict["stereo"]["dem_resolution"],
+        #     )
+        # )
+
+        # if config_dict["post_process"]["geoid"] != -1:
+        #     cls._pipeline.append(
+        #         DEMGeoid(
+        #             input_dem=cls._dem_path,
+        #             output_dem=cls._out_dir / "geoid.tif",
+        #             geoid=config_dict["post_process"]["geoid"],
+        #         )
+        #     )
+
+        return cls(steps=cls._pipeline)
 
     def validate_config_dict(config_dict: dict) -> bool:
         # Check if the config_dict has all the required keys
@@ -278,10 +296,11 @@ class Spot5Pipeline(AmesStereoPipelineBase):
 
 
 if __name__ == "__main__":
-    from pyasp.asp import AddSpotRPC, BundleAdjust, add_directory_to_path
+    import pyasp
+    from pyasp.asp import AddSpotRPC, BundleAdjust
 
     # Add the Ames Stereo Pipeline binaries to the PATH
-    add_directory_to_path(
+    pyasp.add_asp_binary(
         Path.home() / "StereoPipeline-3.5.0-alpha-2024-10-06-x86_64-Linux/bin"
     )
 

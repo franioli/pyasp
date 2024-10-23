@@ -2,6 +2,7 @@ data
 output*
 demo
 sandbox
+logs/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
