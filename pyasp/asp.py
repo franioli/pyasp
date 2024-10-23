@@ -2,7 +2,6 @@
 How to implement a new ASP function:
 """
 
-import os
 import re
 import subprocess
 import time
@@ -11,16 +10,6 @@ from pathlib import Path
 from typing import List
 
 from pyasp import Command, add_directory_to_path, check_asp_binary, logger
-
-cores = os.cpu_count()
-if not cores:
-    cores = 16
-
-_threads_singleprocess = cores  # 24, 16
-_threads_multiprocess = (
-    _threads_singleprocess // 2 if _threads_singleprocess > 1 else 1
-)  # 12, 8
-_processes = _threads_multiprocess // 4 if _threads_multiprocess > 3 else 1  # 3, 2
 
 
 def check_file_exists(path: Path | str) -> bool:
