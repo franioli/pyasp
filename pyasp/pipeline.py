@@ -4,13 +4,15 @@ from typing import List
 
 from pyproj import crs
 
-from pyasp import logger
+from pyasp import Command, logger
 from pyasp.asp import (
     AddSpotRPC,
     AspStepBase,
     BundleAdjust,
+    DEMGeoid,
     MapProject,
     ParallelStereo,
+    Point2dem,
 )
 
 config_dict = {
@@ -35,10 +37,15 @@ config_dict = {
         "cost_mode": 3,
         "corr_kernel": [7, 7],
         "subpixel-mode": 9,
-        "dem_resolution": 10,
     },
     "post_process": {
+        "dem_resolution": 10,
         "geoid": "EGM2008",  # -1 for not applying geoid
+    },
+    "processing": {
+        "threads": 16,
+        "processes": 10,
+        "threads_multiprocess": 8,
     },
 }
 
@@ -55,25 +62,37 @@ class AmesStereoPipelineBase(ABC):
 
     def __init__(self, steps: List[AspStepBase] | dict[str, AspStepBase]):
         if isinstance(steps, dict):
-            steps = [step for step in steps.values() if isinstance(step, AspStepBase)]
+            steps = [step for step in steps.values()]
 
         # Check if all steps are AspStepBase objects
         for step in steps:
-            if not isinstance(step, AspStepBase):
+            if not isinstance(step, (AspStepBase, Command)):
                 raise TypeError(
-                    f"Invalid {step} in steps. All steps must be AspStepBase objects."
+                    f"Invalid {step} in steps. All steps must be AspStepBase or Command objects."
                 )
         self._pipeline = steps
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__} Pipeline with steps: {self._pipeline}"
 
+    @property
+    def steps(self) -> List[AspStepBase]:
+        return self._pipeline
+
     def run(self):
         """Run the entire stereo pipeline."""
+        logger.info("Starting the stereo pipeline...\n")
         for step in self._pipeline:
             logger.info(f"Running step: {step}")
-            step()
-            logger.info(f"Finished step: {step}. Time elapsed: {step.elapsed_time}")
+            step.run()
+            logger.info(
+                f"Finished step: {step}. Time elapsed: {step.elapsed_time:.2f}s"
+            )
+            logger.info("---------------------------------------------\n")
+
+    def resume_from_step(self, step_number: int):
+        """ """
+        pass
 
 
 def create_spot5_symlinks(front_scene: Path, back_scene: Path):
@@ -157,6 +176,9 @@ class Spot5Pipeline(AmesStereoPipelineBase):
         cls._dem_path = Path(config_dict["paths"]["dem_path"])
         cls._out_dir = Path(config_dict["paths"]["output_dir"])
 
+        # Make sure the output directory exists
+        cls._out_dir.mkdir(parents=True, exist_ok=True)
+
         # Build the pipeline
         if config_dict["pre_process"]["do_compute_rpc"]:
             cls._pipeline.append(
@@ -208,7 +230,7 @@ class Spot5Pipeline(AmesStereoPipelineBase):
                     dem=cls._dem_path,
                     camera_image=cls._front_scene / "IMAGERY_FRONT.TIF",
                     camera_model=cls._front_scene / "METADATA_FRONT.DIM",
-                    output_image=cls._out_dir / "IMAGERY_BACK_MapProj.tif",
+                    output_image=cls._out_dir / "IMAGERY_FRONT_MapProj.tif",
                     t="rpc",
                     tr=config_dict["pre_process"]["mapproj_resolution"],
                     t_srs=proj4,
@@ -237,27 +259,48 @@ class Spot5Pipeline(AmesStereoPipelineBase):
                         cls._front_scene / "METADATA_FRONT.DIM",
                         cls._back_scene / "METADATA_BACK.DIM",
                     ],
-                    output_prefix=cls._out_dir / "cor",
+                    output_file_prefix=cls._out_dir / "corr",
                     dem=cls._dem_path,
+                    t="spot5maprpc",
+                    stereo_algorithm=config_dict["stereo"]["stereo_algorithm"],
+                    cost_mode=config_dict["stereo"]["cost_mode"],
+                    corr_kernel=config_dict["stereo"]["corr_kernel"],
+                    subpixel_mode=config_dict["stereo"]["subpixel-mode"],
+                    alignment_method="NONE",
                 )
             )
 
-        # cls._pipeline.append(
-        #     Point2dem(
-        #         stereo_output=cls._out_dir / "tmp",
-        #         output_dem=cls._out_dir / "final_dem.tif",
-        #         resolution=config_dict["stereo"]["dem_resolution"],
-        #     )
-        # )
+        cls._pipeline.append(
+            Point2dem(
+                input_file=cls._out_dir / "corr-PC.tif",
+                r="earth",
+                tr=config_dict["post_process"]["dem_resolution"],
+            )
+        )
+        # Copy the DEM to the output directory
+        out_dem_name = cls._back_scene.parent.stem.split("_HRS")[0]
+        out_dem_path = (
+            cls._out_dir
+            / f"{out_dem_name}_{config_dict['pre_process']['epsg']}_{config_dict['post_process']['dem_resolution']}m.tif"
+        )
+        cls._pipeline.append(
+            Command(
+                f"cp {cls._out_dir}/corr-DEM.tif {out_dem_path}",
+            )
+        )
 
-        # if config_dict["post_process"]["geoid"] != -1:
-        #     cls._pipeline.append(
-        #         DEMGeoid(
-        #             input_dem=cls._dem_path,
-        #             output_dem=cls._out_dir / "geoid.tif",
-        #             geoid=config_dict["post_process"]["geoid"],
-        #         )
-        #     )
+        if config_dict["post_process"]["geoid"] != -1:
+            dem_geoid_path = (
+                out_dem_path.parent
+                / f"{out_dem_name}_{config_dict['post_process']['geoid']}.tif"
+            )
+            cls._pipeline.append(
+                DEMGeoid(
+                    input_dem=out_dem_path,
+                    o=dem_geoid_path,
+                    geoid=config_dict["post_process"]["geoid"],
+                )
+            )
 
         return cls(steps=cls._pipeline)
 

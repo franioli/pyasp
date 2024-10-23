@@ -3,6 +3,8 @@ output*
 demo
 sandbox
 logs/
+dummy*
+dummy.ipynb
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

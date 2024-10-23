@@ -135,7 +135,7 @@ class AspStepBase(ABC):
     _command = None
     _verbose = False
     _asp_bin_dir = None
-    _skip_checkss = False
+    _skip_checks = False
     _elaspsed_time = None
 
     def __init__(self, asp_bin_dir: str | Path = None, verbose: bool = False):
@@ -175,7 +175,13 @@ class AspStepBase(ABC):
         """
         return f"{self.__class__.__name__} - '{self._command}'"
 
+    def __str__(self) -> str:
+        return f"{self.__class__.__name__}"
+
     def __call__(self, skip_checks: bool = False):
+        self.run(skip_checks)
+
+    def run(self, skip_checks: bool = False):
         """
         Execute the constructed ASP command.
 
@@ -183,15 +189,16 @@ class AspStepBase(ABC):
         It raises an error if the command has not been set.
 
         Args:
-            skip_check (bool, optional): If set to True, the command will not be checked for valid parameters before execution. Defaults to False.
+            skip_checks (bool, optional): If set to True, the command will not be checked for valid parameters before execution. Defaults to False.
 
         Raises:
             ValueError: If the command has not been set by calling `bake`.
             RuntimeError: If the command execution fails.
         """
         if skip_checks:
-            self.skip_checks = True
-        else:
+            self._skip_checks = True
+
+        if not self._skip_checks:
             # Check the command for valid parameters
             check_asp_command(self._command)
 
@@ -267,6 +274,9 @@ class ParallelStereo(AspStepBase):
     A class to run the parallel_stereo software from the Ames Stereo Pipeline (ASP). https://stereopipeline.readthedocs.io/en/latest/tools/parallel_stereo.html
     """
 
+    # Force skip check for parallel_stereo as not all the possible parameters are available in the --help output
+    _skip_checks = True
+
     def __init__(
         self,
         images: List[Path | str],
@@ -320,12 +330,6 @@ class ParallelStereo(AspStepBase):
 
         # Set the command for execution
         self._command = command
-
-        # Force skip check for parallel_stereo as not all the possible parameters are available in the --help output
-        logger.info(
-            "Skipping command check for parallel_stereo. Some parameters may not be validated."
-        )
-        self._skip_checks = True
 
     # def check_inputs(self):
     #     """
@@ -540,6 +544,11 @@ class MapProject(AspStepBase):
 
         # Add positional arguments (DEM, camera image, camera model, output image)
         command.extend([dem, camera_image, camera_model, output_image])
+
+        # Handle the special case of the --t_srs flag that requires an underscore instead of a hyphen by manually adding it to the command
+        if "t_srs" in kwargs:
+            command.extend(**{"--t_srs": kwargs["t_srs"]})
+            kwargs.pop("t_srs")
 
         # Add optional keyword arguments from kwargs
         command.extend(**kwargs_to_asp(kwargs))
