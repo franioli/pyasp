@@ -5,7 +5,8 @@ from typing import List
 from pyproj import crs
 
 from pyasp import Command, logger
-from pyasp.asp import (
+from pyasp.pipeline import AmesStereoPipelineBase, AmesStereoPipelineError
+from pyasp.steps import (
     AddSpotRPC,
     AspStepBase,
     BundleAdjust,
@@ -14,7 +15,6 @@ from pyasp.asp import (
     ParallelStereo,
     Point2dem,
 )
-from pyasp.pipeline import AmesStereoPipelineBase, AmesStereoPipelineError
 
 
 def create_spot5_symlinks(front_scene: Path, back_scene: Path):
@@ -274,7 +274,7 @@ class Spot5Pipeline(AmesStereoPipelineBase):
 
 if __name__ == "__main__":
     import pyasp
-    from pyasp.asp import AddSpotRPC, BundleAdjust
+    from pyasp.steps import AddSpotRPC, BundleAdjust
 
     # Add the Ames Stereo Pipeline binaries to the PATH
     pyasp.add_asp_binary(

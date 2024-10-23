@@ -2,7 +2,7 @@ from abc import ABC
 from typing import List
 
 from pyasp import Command, logger
-from pyasp.asp import AspStepBase
+from pyasp.steps import AspStepBase
 
 
 class AmesStereoPipelineError(Exception):
