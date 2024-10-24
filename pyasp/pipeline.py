@@ -40,10 +40,14 @@ class AmesStereoPipelineBase(ABC):
         for step in self._pipeline:
             logger.info(f"Running step: {step}")
             step.run()
-            logger.info(
-                f"Finished step: {step}. Time elapsed: {step.elapsed_time:.2f}s"
-            )
+            if hasattr(step, "elapsed_time"):
+                run_time = step.elapsed_time
+                logger.info(f"Finished step: {step}. Time elapsed: {run_time:.2f}s")
+            else:
+                logger.info(f"Finished step: {step}")
             logger.info("---------------------------------------------\n")
+        logger.info("Finished running the stereo pipeline.\n")
+        logger.info("---------------------------------------------\n")
 
     def resume_from_step(self, step_number: int):
         """Resume the stereo pipeline from a specific step."""
@@ -64,3 +68,4 @@ class AmesStereoPipelineBase(ABC):
             )
             logger.info("---------------------------------------------\n")
         logger.info("Finished running the stereo pipeline.\n")
+        logger.info("---------------------------------------------\n")

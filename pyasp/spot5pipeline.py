@@ -45,7 +45,7 @@ def create_spot5_symlinks(front_scene: Path, back_scene: Path):
             metadata_link.symlink_to(metadata_target)
         except Exception as e:
             logger.error(f"Failed to create symlinks: {e}")
-            raise AmesStereoPipelineError("Symlink creation failed.") from e
+            raise AmesStereoPipelineError(f"Failed to create symlinks: {e}")
 
     logger.debug("Created symbolic links for front and back imagery and metadata.")
 

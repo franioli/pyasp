@@ -120,6 +120,12 @@ def run_command(
 
 
 class Command:
+    _elaspsed_time = None
+    cmd = []
+    name = ""
+    silent = False
+    verbose = False
+
     """
     A class to represent a command with its parameters for execution.
 
@@ -190,6 +196,18 @@ class Command:
         """
         return self.run()
 
+    @property
+    def elapsed_time(self) -> float:
+        """
+        Return the elapsed time of the last command execution.
+
+        Returns:
+            float: The elapsed time in seconds.
+        """
+        if self._elaspsed_time is None:
+            logger.info("The step has not been executed yet.")
+        return self._elaspsed_time
+
     def extend(self, *args, **kwargs):
         """
         Extends the command with additional arguments.
@@ -242,9 +260,13 @@ class Command:
 
         Additional arguments from kwargs are passed to the run_command function.
         """
-        return run_command(
+        start_time = time.perf_counter()
+        ret = run_command(
             self.cmd, silent=self.silent, verbose=self.verbose, **self.kwargs
         )
+        self._elaspsed_time = time.perf_counter() - start_time
+
+        return ret
 
     def get_parameters(self) -> list[str]:
         """
